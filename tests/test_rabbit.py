@@ -23,10 +23,10 @@ import testscenarios
 
 from oslo import messaging
 from oslo.messaging._drivers import amqpdriver
-from oslo.messaging._drivers import common as driver_common
 from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging._drivers import impl_rabbit as rabbit_driver
 from oslo.messaging.openstack.common import jsonutils
+from oslo.messaging.rpc import protocol as rpc_protocol
 from tests import utils as test_utils
 
 load_tests = testscenarios.load_tests_apply_scenarios
@@ -182,7 +182,7 @@ class TestSendReceive(test_utils.BaseTestCase):
                 a = a[0]
             errors.append(str(msg) % a)
 
-        self.stubs.Set(driver_common.LOG, 'error', stub_error)
+        self.stubs.Set(rpc_protocol.LOG, 'error', stub_error)
 
         def send_and_wait_for_reply(i):
             try:

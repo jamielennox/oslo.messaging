@@ -21,6 +21,7 @@ import testscenarios
 from oslo import messaging
 from oslo.messaging._drivers import common as exceptions
 from oslo.messaging.openstack.common import jsonutils
+from oslo.messaging.rpc import protocol as rpc_protocol
 from tests import utils as test_utils
 
 load_tests = testscenarios.load_tests_apply_scenarios
@@ -115,7 +116,7 @@ class SerializeRemoteExceptionTestCase(test_utils.BaseTestCase):
                 a = a[0]
             errors.append(str(msg) % a)
 
-        self.stubs.Set(exceptions.LOG, 'error', stub_error)
+        self.stubs.Set(rpc_protocol.LOG, 'error', stub_error)
 
         try:
             try:
