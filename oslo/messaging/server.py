@@ -25,7 +25,7 @@ __all__ = [
 
 from stevedore import driver
 
-from oslo.messaging._drivers import base as driver_base
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging import exceptions
 
 
@@ -115,7 +115,7 @@ class MessageHandlingServer(object):
             return
         try:
             listener = self.dispatcher._listen(self.transport)
-        except driver_base.TransportDriverError as ex:
+        except driver_exceptions.TransportDriverError as ex:
             raise ServerListenError(self.target, ex)
 
         self._executor = self._executor_cls(self.conf, listener,

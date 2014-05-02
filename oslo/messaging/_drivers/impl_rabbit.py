@@ -31,6 +31,7 @@ import six
 from oslo.messaging._drivers import amqp as rpc_amqp
 from oslo.messaging._drivers import amqpdriver
 from oslo.messaging._drivers import common as rpc_common
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging.openstack.common import network_utils
 
 # FIXME(markmc): remove this
@@ -603,7 +604,7 @@ class Connection(object):
                         '%(hostname)s:%(port)d after %(max_retries)d '
                         'tries: %(err_str)s') % log_info
                 LOG.error(msg)
-                raise rpc_common.RPCException(msg)
+                raise driver_exceptions.RPCException(msg)
 
             if attempt == 1:
                 sleep_time = self.interval_start or 1
@@ -686,7 +687,7 @@ class Connection(object):
         def _error_callback(exc):
             if isinstance(exc, socket.timeout):
                 LOG.debug(_('Timed out waiting for RPC response: %s') % exc)
-                raise rpc_common.Timeout()
+                raise driver_exceptions.Timeout()
             else:
                 LOG.exception(_('Failed to consume message from queue: %s') %
                               exc)

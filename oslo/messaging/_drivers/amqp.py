@@ -32,6 +32,7 @@ from oslo.config import cfg
 import six
 
 from oslo.messaging._drivers import common as rpc_common
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging._drivers import pool
 
 # FIXME(markmc): remove this
@@ -159,7 +160,7 @@ class ConnectionContext(rpc_common.Connection):
         if self.connection:
             return getattr(self.connection, key)
         else:
-            raise rpc_common.InvalidRPCConnectionReuse()
+            raise driver_exceptions.InvalidRPCConnectionReuse()
 
 
 class RpcContext(rpc_common.CommonRpcContext):
@@ -235,7 +236,7 @@ class _MsgIdCache(object):
         except KeyError:
             return
         if msg_id in self.prev_msgids:
-            raise rpc_common.DuplicateMessageError(msg_id=msg_id)
+            raise driver_exceptions.DuplicateMessageError(msg_id=msg_id)
         return msg_id
 
     def add(self, msg_id):

@@ -25,6 +25,7 @@ from oslo import messaging
 from oslo.messaging._drivers import amqp as rpc_amqp
 from oslo.messaging._drivers import base
 from oslo.messaging._drivers import common as rpc_common
+from oslo.messaging._drivers import exceptions as driver_exceptions
 
 LOG = logging.getLogger(__name__)
 
@@ -211,7 +212,7 @@ class ReplyWaiter(object):
 
             try:
                 self.conn.consume(limit=1, timeout=timeout)
-            except rpc_common.Timeout:
+            except driver_exceptions.Timeout:
                 raise messaging.MessagingTimeout('Timed out waiting for a '
                                                  'reply to message ID %s'
                                                  % msg_id)

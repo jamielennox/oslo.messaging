@@ -25,6 +25,7 @@ import six
 from oslo.messaging._drivers import amqp as rpc_amqp
 from oslo.messaging._drivers import amqpdriver
 from oslo.messaging._drivers import common as rpc_common
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging.openstack.common import importutils
 from oslo.messaging.openstack.common import jsonutils
 
@@ -591,7 +592,7 @@ class Connection(object):
         def _error_callback(exc):
             if isinstance(exc, qpid_exceptions.Empty):
                 LOG.debug(_('Timed out waiting for RPC response: %s') % exc)
-                raise rpc_common.Timeout()
+                raise driver_exceptions.Timeout()
             else:
                 LOG.exception(_('Failed to consume message from queue: %s') %
                               exc)

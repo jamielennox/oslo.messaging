@@ -23,7 +23,7 @@ __all__ = [
 from oslo.config import cfg
 import six
 
-from oslo.messaging._drivers import base as driver_base
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging import _utils as utils
 from oslo.messaging.rpc import exceptions as rpc_exceptions
 from oslo.messaging import serializer as msg_serializer
@@ -86,7 +86,7 @@ class _CallContext(object):
             self._check_version_cap(msg.get('version'))
         try:
             self.transport._send(self.target, ctxt, msg)
-        except driver_base.TransportDriverError as ex:
+        except driver_exceptions.TransportDriverError as ex:
             raise rpc_exceptions.ClientSendError(self.target, ex)
 
     def call(self, ctxt, method, **kwargs):
@@ -104,7 +104,7 @@ class _CallContext(object):
         try:
             result = self.transport._send(self.target, msg_ctxt, msg,
                                           wait_for_reply=True, timeout=timeout)
-        except driver_base.TransportDriverError as ex:
+        except driver_exceptions.TransportDriverError as ex:
             raise rpc_exceptions.ClientSendError(self.target, ex)
         return self.serializer.deserialize_entity(ctxt, result)
 

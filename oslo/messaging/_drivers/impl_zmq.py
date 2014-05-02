@@ -31,6 +31,7 @@ from six import moves
 
 from oslo.messaging._drivers import base
 from oslo.messaging._drivers import common as rpc_common
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging._executors import impl_eventlet  # FIXME(markmc)
 from oslo.messaging.openstack.common import excutils
 from oslo.messaging.openstack.common import importutils
@@ -42,7 +43,6 @@ zmq = importutils.try_import('eventlet.green.zmq')
 pformat = pprint.pformat
 Timeout = eventlet.timeout.Timeout
 LOG = logging.getLogger(__name__)
-RPCException = rpc_common.RPCException
 
 # FIXME(markmc): remove this
 _ = lambda s: s
@@ -152,7 +152,7 @@ class ZmqSocket(object):
             else:
                 self.sock.connect(addr)
         except Exception:
-            raise RPCException(_("Could not open socket."))
+            raise driver_exceptions.RPCException(_("Could not open socket."))
 
     def socket_s(self):
         """Get socket type as string."""
@@ -163,7 +163,8 @@ class ZmqSocket(object):
     def subscribe(self, msg_filter):
         """Subscribe."""
         if not self.can_sub:
-            raise RPCException("Cannot subscribe on this socket.")
+            raise driver_exceptions.RPCException(
+                "Cannot subscribe on this socket.")
         LOG.debug(_("Subscribing to %s"), msg_filter)
 
         try:
@@ -206,12 +207,14 @@ class ZmqSocket(object):
 
     def recv(self, **kwargs):
         if not self.can_recv:
-            raise RPCException(_("You cannot recv on this socket."))
+            raise driver_exceptions.RPCException(_(
+                "You cannot recv on this socket."))
         return self.sock.recv_multipart(**kwargs)
 
     def send(self, data, **kwargs):
         if not self.can_send:
-            raise RPCException(_("You cannot send on this socket."))
+            raise driver_exceptions.RPCException(_(
+                "You cannot send on this socket."))
         self.sock.send_multipart(data, **kwargs)
 
 
@@ -285,7 +288,7 @@ class InternalContext(object):
         except greenlet.GreenletExit:
             # ignore these since they are just from shutdowns
             pass
-        except rpc_common.ClientException as e:
+        except driver_exceptions.ClientException as e:
             LOG.debug(_("Expected exception during message handling (%s)") %
                       e._exc_info[1])
             return {'exc':
@@ -380,7 +383,7 @@ class ZmqBaseReactor(ConsumerBase):
         LOG.info(_("Registering reactor"))
 
         if zmq_type_in not in (zmq.PULL, zmq.SUB):
-            raise RPCException("Bad input socktype")
+            raise driver_exceptions.RPCException("Bad input socktype")
 
         # Items push in.
         inq = ZmqSocket(in_addr, zmq_type_in, bind=in_bind,
@@ -451,12 +454,12 @@ class ZmqProxy(ZmqBaseReactor):
                     if self.badchars.search(topic) is not None:
                         emsg = _("Topic contained dangerous characters.")
                         LOG.warn(emsg)
-                        raise RPCException(emsg)
+                        raise driver_exceptions.RPCException(emsg)
 
                     out_sock = ZmqSocket("ipc://%s/zmq_topic_%s" %
                                          (ipc_dir, topic),
                                          sock_type, bind=True)
-                except RPCException:
+                except driver_exceptions.RPCException:
                     waiter.send_exception(*sys.exc_info())
                     return
 
@@ -480,7 +483,7 @@ class ZmqProxy(ZmqBaseReactor):
 
             try:
                 wait_sock_creation.wait()
-            except RPCException:
+            except driver_exceptions.RPCException:
                 LOG.error(_("Topic socket file creation failed."))
                 return
 
@@ -638,7 +641,8 @@ def _cast(addr, context, topic, msg, timeout=None, envelope=False,
             # assumes cast can't return an exception
             conn.cast(_msg_id, topic, payload, envelope)
         except zmq.ZMQError:
-            raise RPCException("Cast failed. ZMQ Socket Exception")
+            raise driver_exceptions.RPCException(
+                "Cast failed. ZMQ Socket Exception")
         finally:
             if 'conn' in vars():
                 conn.close()
@@ -702,9 +706,9 @@ def _call(addr, context, topic, msg, timeout=None,
             responses = raw_msg['args']['response']
         # ZMQError trumps the Timeout error.
         except zmq.ZMQError:
-            raise RPCException("ZMQ Socket Error")
+            raise driver_exceptions.RPCException("ZMQ Socket Error")
         except (IndexError, KeyError):
-            raise RPCException(_("RPC Message Invalid."))
+            raise driver_exceptions.RPCException(_("RPC Message Invalid."))
         finally:
             if 'msg_waiter' in vars():
                 msg_waiter.close()
@@ -738,7 +742,7 @@ def _multi_send(method, context, topic, msg, timeout=None,
         LOG.warn(_("No matchmaker results. Not casting."))
         # While not strictly a timeout, callers know how to handle
         # this exception and a timeout isn't too big a lie.
-        raise rpc_common.Timeout(_("No match from matchmaker."))
+        raise driver_exceptions.Timeout(_("No match from matchmaker."))
 
     # This supports brokerless fanout (addresses > 1)
     return_val = None

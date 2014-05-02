@@ -17,12 +17,6 @@ import abc
 
 import six
 
-from oslo.messaging import exceptions
-
-
-class TransportDriverError(exceptions.MessagingException):
-    """Base class for transport driver specific exceptions."""
-
 
 @six.add_metaclass(abc.ABCMeta)
 class IncomingMessage(object):

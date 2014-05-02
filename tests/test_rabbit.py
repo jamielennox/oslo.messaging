@@ -24,6 +24,7 @@ import testscenarios
 from oslo import messaging
 from oslo.messaging._drivers import amqpdriver
 from oslo.messaging._drivers import common as driver_common
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging._drivers import impl_rabbit as rabbit_driver
 from oslo.messaging.openstack.common import jsonutils
 from tests import utils as test_utils
@@ -646,6 +647,7 @@ class RpcKombuHATestCase(test_utils.BaseTestCase):
         self.stubs.UnsetAll()
 
         for i in range(brokers_count):
-            self.assertRaises(driver_common.RPCException, connection.reconnect)
+            self.assertRaises(driver_exceptions.RPCException,
+                              connection.reconnect)
 
         connection.close()

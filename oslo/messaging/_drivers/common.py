@@ -17,7 +17,6 @@
 
 import copy
 import logging
-import sys
 import traceback
 
 from oslo.config import cfg
@@ -25,6 +24,7 @@ from oslo import messaging
 import six
 
 from oslo.messaging import _utils as utils
+from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging.openstack.common import importutils
 from oslo.messaging.openstack.common import jsonutils
 
@@ -84,78 +84,6 @@ _exception_opts = [
                      'recreated upon receiving exception data from an rpc '
                      'call.'),
 ]
-
-
-class RPCException(Exception):
-    msg_fmt = _("An unknown RPC related exception occurred.")
-
-    def __init__(self, message=None, **kwargs):
-        self.kwargs = kwargs
-
-        if not message:
-            try:
-                message = self.msg_fmt % kwargs
-
-            except Exception:
-                # kwargs doesn't match a variable in the message
-                # log the issue and the kwargs
-                LOG.exception(_('Exception in string format operation'))
-                for name, value in six.iteritems(kwargs):
-                    LOG.error("%s: %s" % (name, value))
-                # at least get the core message out if something happened
-                message = self.msg_fmt
-
-        super(RPCException, self).__init__(message)
-
-
-class Timeout(RPCException):
-    """Signifies that a timeout has occurred.
-
-    This exception is raised if the rpc_response_timeout is reached while
-    waiting for a response from the remote side.
-    """
-    msg_fmt = _('Timeout while waiting on RPC response - '
-                'topic: "%(topic)s", RPC method: "%(method)s" '
-                'info: "%(info)s"')
-
-    def __init__(self, info=None, topic=None, method=None):
-        """Initiates Timeout object.
-
-        :param info: Extra info to convey to the user
-        :param topic: The topic that the rpc call was sent to
-        :param rpc_method_name: The name of the rpc method being
-                                called
-        """
-        self.info = info
-        self.topic = topic
-        self.method = method
-        super(Timeout, self).__init__(
-            None,
-            info=info or _('<unknown>'),
-            topic=topic or _('<unknown>'),
-            method=method or _('<unknown>'))
-
-
-class DuplicateMessageError(RPCException):
-    msg_fmt = _("Found duplicate message(%(msg_id)s). Skipping it.")
-
-
-class InvalidRPCConnectionReuse(RPCException):
-    msg_fmt = _("Invalid reuse of an RPC connection.")
-
-
-class UnsupportedRpcVersion(RPCException):
-    msg_fmt = _("Specified RPC version, %(version)s, not supported by "
-                "this endpoint.")
-
-
-class UnsupportedRpcEnvelopeVersion(RPCException):
-    msg_fmt = _("Specified RPC envelope version, %(version)s, "
-                "not supported by this endpoint.")
-
-
-class RpcVersionCapError(RPCException):
-    msg_fmt = _("Specified RPC version cap, %(version_cap)s, is too low")
 
 
 class Connection(object):
@@ -300,16 +228,6 @@ class CommonRpcContext(object):
         pass
 
 
-class ClientException(Exception):
-    """Encapsulates actual exception expected to be hit by a RPC proxy object.
-
-    Merely instantiating it records the current exception information, which
-    will be passed back to the RPC client without exceptional logging.
-    """
-    def __init__(self):
-        self._exc_info = sys.exc_info()
-
-
 def serialize_msg(raw_msg):
     # NOTE(russellb) See the docstring for _RPC_ENVELOPE_VERSION for more
     # information about this format.
@@ -357,7 +275,8 @@ def deserialize_msg(msg):
 
     if not utils.version_is_compatible(_RPC_ENVELOPE_VERSION,
                                        msg[_VERSION_KEY]):
-        raise UnsupportedRpcEnvelopeVersion(version=msg[_VERSION_KEY])
+        version = msg[_VERSION_KEY]
+        raise driver_exceptions.UnsupportedRpcEnvelopeVersion(version=version)
 
     raw_msg = jsonutils.loads(msg[_MESSAGE_KEY])
 
