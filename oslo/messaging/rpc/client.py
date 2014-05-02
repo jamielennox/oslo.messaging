@@ -17,10 +17,7 @@
 #    under the License.
 
 __all__ = [
-    'ClientSendError',
     'RPCClient',
-    'RPCVersionCapError',
-    'RemoteError',
 ]
 
 from oslo.config import cfg
@@ -28,7 +25,7 @@ import six
 
 from oslo.messaging._drivers import base as driver_base
 from oslo.messaging import _utils as utils
-from oslo.messaging import exceptions
+from oslo.messaging.rpc import exceptions as rpc_exceptions
 from oslo.messaging import serializer as msg_serializer
 
 _client_opts = [
@@ -36,47 +33,6 @@ _client_opts = [
                default=60,
                help='Seconds to wait for a response from a call.'),
 ]
-
-
-class RemoteError(exceptions.MessagingException):
-
-    """Signifies that a remote endpoint method has raised an exception.
-
-    Contains a string representation of the type of the original exception,
-    the value of the original exception, and the traceback.  These are
-    sent to the parent as a joined string so printing the exception
-    contains all of the relevant info.
-    """
-
-    def __init__(self, exc_type=None, value=None, traceback=None):
-        self.exc_type = exc_type
-        self.value = value
-        self.traceback = traceback
-        msg = ("Remote error: %(exc_type)s %(value)s\n%(traceback)s." %
-               dict(exc_type=self.exc_type, value=self.value,
-                    traceback=self.traceback))
-        super(RemoteError, self).__init__(msg)
-
-
-class RPCVersionCapError(exceptions.MessagingException):
-
-    def __init__(self, version, version_cap):
-        self.version = version
-        self.version_cap = version_cap
-        msg = ("Specified RPC version cap, %(version_cap)s, is too low. "
-               "Needs to be higher than %(version)s." %
-               dict(version=self.version, version_cap=self.version_cap))
-        super(RPCVersionCapError, self).__init__(msg)
-
-
-class ClientSendError(exceptions.MessagingException):
-    """Raised if we failed to send a message to a target."""
-
-    def __init__(self, target, ex):
-        msg = 'Failed to send to target "%s": %s' % (target, ex)
-        super(ClientSendError, self).__init__(msg)
-        self.target = target
-        self.ex = ex
 
 
 class _CallContext(object):
@@ -111,8 +67,8 @@ class _CallContext(object):
 
     def _check_version_cap(self, version):
         if not utils.version_is_compatible(self.version_cap, version):
-            raise RPCVersionCapError(version=version,
-                                     version_cap=self.version_cap)
+            raise rpc_exceptions.RPCVersionCapError(
+                version=version, version_cap=self.version_cap)
 
     def can_send_version(self, version=_marker):
         """Check to see if a version is compatible with the version cap."""
@@ -131,7 +87,7 @@ class _CallContext(object):
         try:
             self.transport._send(self.target, ctxt, msg)
         except driver_base.TransportDriverError as ex:
-            raise ClientSendError(self.target, ex)
+            raise rpc_exceptions.ClientSendError(self.target, ex)
 
     def call(self, ctxt, method, **kwargs):
         """Invoke a method and wait for a reply. See RPCClient.call()."""
@@ -149,7 +105,7 @@ class _CallContext(object):
             result = self.transport._send(self.target, msg_ctxt, msg,
                                           wait_for_reply=True, timeout=timeout)
         except driver_base.TransportDriverError as ex:
-            raise ClientSendError(self.target, ex)
+            raise rpc_exceptions.ClientSendError(self.target, ex)
         return self.serializer.deserialize_entity(ctxt, result)
 
     @classmethod

@@ -30,3 +30,4 @@ __all__ = [
 from .client import *
 from .dispatcher import *
 from .server import *
+from .exceptions import *
