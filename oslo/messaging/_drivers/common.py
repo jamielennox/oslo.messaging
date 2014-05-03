@@ -91,16 +91,18 @@ def serialize_remote_exception(*args, **kwargs):
     Failure_info should be a sys.exc_info() tuple.
 
     """
-    return rpc_protocol.OpenStackRPC2().serialize_exception(*args, **kwargs)
+    return rpc_protocol.OpenStackRPC2(None).serialize_exception(*args,
+                                                                **kwargs)
 
 
 def deserialize_remote_exception(*args, **kwargs):
-    return rpc_protocol.OpenStackRPC2().deserialize_exception(*args, **kwargs)
+    return rpc_protocol.OpenStackRPC2(None).deserialize_exception(*args,
+                                                                  **kwargs)
 
 
 def serialize_msg(*args, **kwargs):
-    return rpc_protocol.OpenStackRPC2().serialize_msg(*args, **kwargs)
+    return rpc_protocol.OpenStackRPC2(None).serialize_msg(*args, **kwargs)
 
 
 def deserialize_msg(*args, **kwargs):
-    return rpc_protocol.OpenStackRPC2().deserialize_msg(*args, **kwargs)
+    return rpc_protocol.OpenStackRPC2(None).deserialize_msg(*args, **kwargs)

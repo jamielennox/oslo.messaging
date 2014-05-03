@@ -48,6 +48,9 @@ _ = lambda s: s
 @six.add_metaclass(abc.ABCMeta)
 class RPCProtocol(object):
 
+    def __init__(self, conf):
+        self.conf = conf
+
     @abc.abstractmethod
     def serialize_msg(self, raw_msg):
         return None

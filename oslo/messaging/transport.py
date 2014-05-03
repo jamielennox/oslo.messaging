@@ -33,7 +33,6 @@ from stevedore import driver
 
 from oslo.messaging import exceptions
 from oslo.messaging.openstack.common.py3kcompat import urlutils
-from oslo.messaging.rpc import protocol as rpc_protocol
 
 
 _transport_opts = [
@@ -51,6 +50,10 @@ _transport_opts = [
                help='The default exchange under which topics are scoped. May '
                     'be overridden by an exchange name specified in the '
                     'transport_url option.'),
+    cfg.StrOpt('rpc_protocol',
+               default='rpc2',
+               help='The message enveloping protocol for sending '
+                    'RPC messages'),
 ]
 
 
@@ -147,6 +150,15 @@ def _load_transport(conf, url, protocol, **kwargs):
     return mgr.driver
 
 
+def _load_protocol(conf):
+    mgr = driver.DriverManager('oslo.messaging.protocols',
+                               conf.rpc_protocol,
+                               invoke_on_load=True,
+                               invoke_args=[conf])
+
+    return mgr.driver
+
+
 def get_transport(conf, url=None, allowed_remote_exmods=[], aliases=None):
     """A factory method for Transport objects.
 
@@ -186,7 +198,7 @@ def get_transport(conf, url=None, allowed_remote_exmods=[], aliases=None):
             raise InvalidTransportURL(url, 'No scheme specified in "%s"' % url)
         url = parsed
 
-    protocol = rpc_protocol.OpenStackRPC2()
+    protocol = _load_protocol(conf)
     driver = _load_transport(conf, url, protocol,
                              default_exchange=conf.control_exchange,
                              allowed_remote_exmods=allowed_remote_exmods)
