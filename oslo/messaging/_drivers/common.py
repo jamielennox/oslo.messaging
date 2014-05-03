@@ -16,7 +16,6 @@
 #    under the License.
 
 import copy
-import logging
 
 import six
 
@@ -24,10 +23,6 @@ from oslo.messaging.rpc import protocol as rpc_protocol
 
 # FIXME(markmc): remove this
 _ = lambda s: s
-
-LOG = logging.getLogger(__name__)
-
-_EXCEPTIONS_MODULE = 'exceptions' if six.PY2 else 'builtins'
 
 
 class Connection(object):
