@@ -133,6 +133,19 @@ class DriverLoadFailure(exceptions.MessagingException):
         self.ex = ex
 
 
+def _load_transport(conf, url, **kwargs):
+    try:
+        mgr = driver.DriverManager('oslo.messaging.drivers',
+                                   url.transport,
+                                   invoke_on_load=True,
+                                   invoke_args=[conf, url],
+                                   invoke_kwds=kwargs)
+    except RuntimeError as ex:
+        raise DriverLoadFailure(url.transport, ex)
+
+    return mgr.driver
+
+
 def get_transport(conf, url=None, allowed_remote_exmods=[], aliases=None):
     """A factory method for Transport objects.
 
@@ -172,19 +185,11 @@ def get_transport(conf, url=None, allowed_remote_exmods=[], aliases=None):
             raise InvalidTransportURL(url, 'No scheme specified in "%s"' % url)
         url = parsed
 
-    kwargs = dict(default_exchange=conf.control_exchange,
-                  allowed_remote_exmods=allowed_remote_exmods)
+    driver = _load_transport(conf, url,
+                             default_exchange=conf.control_exchange,
+                             allowed_remote_exmods=allowed_remote_exmods)
 
-    try:
-        mgr = driver.DriverManager('oslo.messaging.drivers',
-                                   url.transport,
-                                   invoke_on_load=True,
-                                   invoke_args=[conf, url],
-                                   invoke_kwds=kwargs)
-    except RuntimeError as ex:
-        raise DriverLoadFailure(url.transport, ex)
-
-    return Transport(mgr.driver)
+    return Transport(driver)
 
 
 class TransportHost(object):
