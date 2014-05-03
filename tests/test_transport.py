@@ -42,12 +42,6 @@ class _FakeDriver(object):
         pass
 
 
-class _FakeManager(object):
-
-    def __init__(self, driver):
-        self.driver = driver
-
-
 class GetTransportTestCase(test_utils.BaseTestCase):
 
     scenarios = [
@@ -117,21 +111,15 @@ class GetTransportTestCase(test_utils.BaseTestCase):
                     control_exchange=self.control_exchange,
                     transport_url=self.transport_url)
 
-        self.mox.StubOutWithMock(driver, 'DriverManager')
-
-        invoke_args = [self.conf,
-                       messaging.TransportURL.parse(self.conf,
-                                                    self.expect['url'])]
-        invoke_kwds = dict(default_exchange=self.expect['exchange'],
-                           allowed_remote_exmods=self.expect['allowed'])
+        self.mox.StubOutWithMock(transport, '_load_transport')
 
         drvr = _FakeDriver(self.conf)
-        driver.DriverManager('oslo.messaging.drivers',
-                             self.expect['backend'],
-                             invoke_on_load=True,
-                             invoke_args=invoke_args,
-                             invoke_kwds=invoke_kwds).\
-            AndReturn(_FakeManager(drvr))
+
+        url = messaging.TransportURL.parse(self.conf, self.expect['url'])
+        transport._load_transport(
+            self.conf, url,
+            default_exchange=self.expect['exchange'],
+            allowed_remote_exmods=self.expect['allowed']).AndReturn(drvr)
 
         self.mox.ReplayAll()
 
@@ -172,20 +160,14 @@ class GetTransportSadPathTestCase(test_utils.BaseTestCase):
                     transport_url=self.transport_url)
 
         if self.rpc_backend:
-            self.mox.StubOutWithMock(driver, 'DriverManager')
+            self.mox.StubOutWithMock(transport, '_load_transport')
 
-            invoke_args = [self.conf,
-                           messaging.TransportURL.parse(self.conf,
-                                                        self.url)]
-            invoke_kwds = dict(default_exchange='openstack',
-                               allowed_remote_exmods=[])
-
-            driver.DriverManager('oslo.messaging.drivers',
-                                 self.rpc_backend,
-                                 invoke_on_load=True,
-                                 invoke_args=invoke_args,
-                                 invoke_kwds=invoke_kwds).\
-                AndRaise(RuntimeError())
+            url = messaging.TransportURL.parse(self.conf, self.url)
+            transport._load_transport(self.conf, url,
+                                      default_exchange='openstack',
+                                      allowed_remote_exmods=[]).\
+                AndRaise(transport.DriverLoadFailure(url.transport,
+                                                     RuntimeError()))
 
             self.mox.ReplayAll()
 
@@ -247,14 +229,11 @@ class TestSetDefaults(test_utils.BaseTestCase):
     def test_set_default_control_exchange(self):
         messaging.set_transport_defaults(control_exchange='foo')
 
-        self.mox.StubOutWithMock(driver, 'DriverManager')
-        invoke_kwds = mox.ContainsKeyValue('default_exchange', 'foo')
-        driver.DriverManager(mox.IgnoreArg(),
-                             mox.IgnoreArg(),
-                             invoke_on_load=mox.IgnoreArg(),
-                             invoke_args=mox.IgnoreArg(),
-                             invoke_kwds=invoke_kwds).\
-            AndReturn(_FakeManager(_FakeDriver(self.conf)))
+        self.mox.StubOutWithMock(transport, '_load_transport')
+        transport._load_transport(self.conf, mox.IgnoreArg(),
+                                  allowed_remote_exmods=[],
+                                  default_exchange='foo').\
+            AndReturn(_FakeDriver(self.conf))
         self.mox.ReplayAll()
 
         messaging.get_transport(self.conf)
