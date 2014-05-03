@@ -82,6 +82,20 @@ class AMQPIncomingMessage(base.IncomingMessage):
         self.requeue_callback()
 
 
+class MessageWrapper(dict):
+
+    def __init__(self, message):
+        self._inner_msg = message
+        deserialized = rpc_common.deserialize_msg(message)
+        super(MessageWrapper, self).__init__(deserialized)
+
+    def acknowledge(self):
+        self._inner_msg.acknowledge()
+
+    def requeue(self):
+        self._inner_msg.requeue()
+
+
 class AMQPListener(base.Listener):
 
     def __init__(self, driver, conn):
@@ -92,6 +106,7 @@ class AMQPListener(base.Listener):
 
     def __call__(self, message):
         # FIXME(markmc): logging isn't driver specific
+        message = MessageWrapper(message)
         rpc_common._safe_log(LOG.debug, 'received %s', dict(message))
 
         unique_id = self.msg_id_cache.check_duplicate_message(message)
@@ -176,7 +191,7 @@ class ReplyWaiter(object):
 
     def __call__(self, message):
         message.acknowledge()
-        self.incoming.append(message)
+        self.incoming.append(MessageWrapper(message))
 
     def listen(self, msg_id):
         queue = moves.queue.Queue()

@@ -30,7 +30,6 @@ import six
 
 from oslo.messaging._drivers import amqp as rpc_amqp
 from oslo.messaging._drivers import amqpdriver
-from oslo.messaging._drivers import common as rpc_common
 from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging.openstack.common import network_utils
 
@@ -126,8 +125,7 @@ def _get_queue_arguments(conf):
 
 class RabbitMessage(dict):
     def __init__(self, raw_message):
-        super(RabbitMessage, self).__init__(
-            rpc_common.deserialize_msg(raw_message.payload))
+        super(RabbitMessage, self).__init__(raw_message.payload)
         self._raw_message = raw_message
 
     def acknowledge(self):

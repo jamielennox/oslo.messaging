@@ -24,7 +24,6 @@ import six
 
 from oslo.messaging._drivers import amqp as rpc_amqp
 from oslo.messaging._drivers import amqpdriver
-from oslo.messaging._drivers import common as rpc_common
 from oslo.messaging._drivers import exceptions as driver_exceptions
 from oslo.messaging.openstack.common import importutils
 from oslo.messaging.openstack.common import jsonutils
@@ -93,8 +92,7 @@ def raise_invalid_topology_version(conf):
 
 class QpidMessage(dict):
     def __init__(self, session, raw_message):
-        super(QpidMessage, self).__init__(
-            rpc_common.deserialize_msg(raw_message.content))
+        super(QpidMessage, self).__init__(raw_message.content)
         self._raw_message = raw_message
         self._session = session
 
