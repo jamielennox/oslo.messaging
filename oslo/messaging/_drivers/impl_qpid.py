@@ -680,14 +680,14 @@ class Connection(object):
 
 class QpidDriver(amqpdriver.AMQPDriverBase):
 
-    def __init__(self, conf, url,
+    def __init__(self, conf, url, protocol,
                  default_exchange=None, allowed_remote_exmods=[]):
         conf.register_opts(qpid_opts)
         conf.register_opts(rpc_amqp.amqp_opts)
 
         connection_pool = rpc_amqp.get_connection_pool(conf, Connection)
 
-        super(QpidDriver, self).__init__(conf, url,
+        super(QpidDriver, self).__init__(conf, url, protocol,
                                          connection_pool,
                                          default_exchange,
                                          allowed_remote_exmods)

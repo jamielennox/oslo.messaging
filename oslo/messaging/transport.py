@@ -33,6 +33,7 @@ from stevedore import driver
 
 from oslo.messaging import exceptions
 from oslo.messaging.openstack.common.py3kcompat import urlutils
+from oslo.messaging.rpc import protocol as rpc_protocol
 
 
 _transport_opts = [
@@ -133,12 +134,12 @@ class DriverLoadFailure(exceptions.MessagingException):
         self.ex = ex
 
 
-def _load_transport(conf, url, **kwargs):
+def _load_transport(conf, url, protocol, **kwargs):
     try:
         mgr = driver.DriverManager('oslo.messaging.drivers',
                                    url.transport,
                                    invoke_on_load=True,
-                                   invoke_args=[conf, url],
+                                   invoke_args=[conf, url, protocol],
                                    invoke_kwds=kwargs)
     except RuntimeError as ex:
         raise DriverLoadFailure(url.transport, ex)
@@ -185,7 +186,8 @@ def get_transport(conf, url=None, allowed_remote_exmods=[], aliases=None):
             raise InvalidTransportURL(url, 'No scheme specified in "%s"' % url)
         url = parsed
 
-    driver = _load_transport(conf, url,
+    protocol = rpc_protocol.OpenStackRPC2()
+    driver = _load_transport(conf, url, protocol,
                              default_exchange=conf.control_exchange,
                              allowed_remote_exmods=allowed_remote_exmods)
 

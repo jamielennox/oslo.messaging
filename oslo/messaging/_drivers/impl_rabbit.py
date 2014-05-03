@@ -768,14 +768,14 @@ class Connection(object):
 
 class RabbitDriver(amqpdriver.AMQPDriverBase):
 
-    def __init__(self, conf, url, default_exchange=None,
-                 allowed_remote_exmods=[]):
+    def __init__(self, conf, url, protocol,
+                 default_exchange=None, allowed_remote_exmods=[]):
         conf.register_opts(rabbit_opts)
         conf.register_opts(rpc_amqp.amqp_opts)
 
         connection_pool = rpc_amqp.get_connection_pool(conf, Connection)
 
-        super(RabbitDriver, self).__init__(conf, url,
+        super(RabbitDriver, self).__init__(conf, url, protocol,
                                            connection_pool,
                                            default_exchange,
                                            allowed_remote_exmods)

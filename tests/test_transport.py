@@ -117,7 +117,7 @@ class GetTransportTestCase(test_utils.BaseTestCase):
 
         url = messaging.TransportURL.parse(self.conf, self.expect['url'])
         transport._load_transport(
-            self.conf, url,
+            self.conf, url, mox.IgnoreArg(),
             default_exchange=self.expect['exchange'],
             allowed_remote_exmods=self.expect['allowed']).AndReturn(drvr)
 
@@ -163,7 +163,7 @@ class GetTransportSadPathTestCase(test_utils.BaseTestCase):
             self.mox.StubOutWithMock(transport, '_load_transport')
 
             url = messaging.TransportURL.parse(self.conf, self.url)
-            transport._load_transport(self.conf, url,
+            transport._load_transport(self.conf, url, mox.IgnoreArg(),
                                       default_exchange='openstack',
                                       allowed_remote_exmods=[]).\
                 AndRaise(transport.DriverLoadFailure(url.transport,
@@ -230,7 +230,7 @@ class TestSetDefaults(test_utils.BaseTestCase):
         messaging.set_transport_defaults(control_exchange='foo')
 
         self.mox.StubOutWithMock(transport, '_load_transport')
-        transport._load_transport(self.conf, mox.IgnoreArg(),
+        transport._load_transport(self.conf, mox.IgnoreArg(), mox.IgnoreArg(),
                                   allowed_remote_exmods=[],
                                   default_exchange='foo').\
             AndReturn(_FakeDriver(self.conf))

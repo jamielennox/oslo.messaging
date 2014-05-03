@@ -892,13 +892,16 @@ class ZmqDriver(base.BaseDriver):
 
     # FIXME(markmc): allow this driver to be used without eventlet
 
-    def __init__(self, conf, url, default_exchange=None,
+    def __init__(self, conf, url, protocol, default_exchange=None,
                  allowed_remote_exmods=[]):
         conf.register_opts(zmq_opts)
         conf.register_opts(impl_eventlet._eventlet_opts)
 
-        super(ZmqDriver, self).__init__(conf, url, default_exchange,
+        super(ZmqDriver, self).__init__(conf, url, protocol,
+                                        default_exchange,
                                         allowed_remote_exmods)
+
+        # FIXME(jamielennox): handle protocol
 
         # FIXME(markmc): handle default_exchange
 

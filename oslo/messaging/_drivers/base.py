@@ -38,6 +38,10 @@ class IncomingMessage(object):
     def requeue(self):
         "Requeue the message."
 
+    @property
+    def protocol(self):
+        return self.listener.driver._protocol
+
 
 @six.add_metaclass(abc.ABCMeta)
 class Listener(object):
@@ -54,12 +58,13 @@ class Listener(object):
 @six.add_metaclass(abc.ABCMeta)
 class BaseDriver(object):
 
-    def __init__(self, conf, url,
+    def __init__(self, conf, url, protocol,
                  default_exchange=None, allowed_remote_exmods=[]):
         self.conf = conf
         self._url = url
         self._default_exchange = default_exchange
         self._allowed_remote_exmods = allowed_remote_exmods
+        self._protocol = protocol
 
     def require_features(self, requeue=False):
         if requeue:

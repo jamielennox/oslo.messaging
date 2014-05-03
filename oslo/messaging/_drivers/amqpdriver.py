@@ -45,8 +45,7 @@ class AMQPIncomingMessage(base.IncomingMessage):
     def _send_reply(self, conn, reply=None, failure=None,
                     ending=False, log_failure=True):
         if failure:
-            failure = rpc_common.serialize_remote_exception(failure,
-                                                            log_failure)
+            failure = self.protocol.serialize_exception(failure, log_failure)
 
         msg = {'result': reply, 'failure': failure}
         if ending:
@@ -59,9 +58,9 @@ class AMQPIncomingMessage(base.IncomingMessage):
         # Otherwise use the msg_id for backward compatibility.
         if self.reply_q:
             msg['_msg_id'] = self.msg_id
-            conn.direct_send(self.reply_q, rpc_common.serialize_msg(msg))
+            conn.direct_send(self.reply_q, self.protocol.serialize_msg(msg))
         else:
-            conn.direct_send(self.msg_id, rpc_common.serialize_msg(msg))
+            conn.direct_send(self.msg_id, self.protocol.serialize_msg(msg))
 
     def reply(self, reply=None, failure=None, log_failure=True):
         with self.listener.driver._get_connection() as conn:
@@ -84,9 +83,9 @@ class AMQPIncomingMessage(base.IncomingMessage):
 
 class MessageWrapper(dict):
 
-    def __init__(self, message):
+    def __init__(self, protocol, message):
         self._inner_msg = message
-        deserialized = rpc_common.deserialize_msg(message)
+        deserialized = protocol.deserialize_msg(message)
         super(MessageWrapper, self).__init__(deserialized)
 
     def acknowledge(self):
@@ -106,7 +105,7 @@ class AMQPListener(base.Listener):
 
     def __call__(self, message):
         # FIXME(markmc): logging isn't driver specific
-        message = MessageWrapper(message)
+        message = MessageWrapper(self.driver._protocol, message)
         rpc_common._safe_log(LOG.debug, 'received %s', dict(message))
 
         unique_id = self.msg_id_cache.check_duplicate_message(message)
@@ -176,11 +175,12 @@ class ReplyWaiters(object):
 
 class ReplyWaiter(object):
 
-    def __init__(self, conf, reply_q, conn, allowed_remote_exmods):
+    def __init__(self, conf, reply_q, conn, allowed_remote_exmods, protocol):
         self.conf = conf
         self.conn = conn
         self.reply_q = reply_q
         self.allowed_remote_exmods = allowed_remote_exmods
+        self.protocol = protocol
 
         self.conn_lock = threading.Lock()
         self.incoming = []
@@ -191,7 +191,7 @@ class ReplyWaiter(object):
 
     def __call__(self, message):
         message.acknowledge()
-        self.incoming.append(MessageWrapper(message))
+        self.incoming.append(MessageWrapper(self.protocol, message))
 
     def listen(self, msg_id):
         queue = moves.queue.Queue()
@@ -206,7 +206,7 @@ class ReplyWaiter(object):
         self.msg_id_cache.check_duplicate_message(data)
         if data['failure']:
             failure = data['failure']
-            result = rpc_common.deserialize_remote_exception(
+            result = self.protocol.deserialize_exception(
                 failure, self.allowed_remote_exmods)
         elif data.get('ending', False):
             ending = True
@@ -306,9 +306,10 @@ class ReplyWaiter(object):
 
 class AMQPDriverBase(base.BaseDriver):
 
-    def __init__(self, conf, url, connection_pool,
+    def __init__(self, conf, url, protocol, connection_pool,
                  default_exchange=None, allowed_remote_exmods=[]):
-        super(AMQPDriverBase, self).__init__(conf, url, default_exchange,
+        super(AMQPDriverBase, self).__init__(conf, url, protocol,
+                                             default_exchange,
                                              allowed_remote_exmods)
 
         self._server_params = self._server_params_from_url(self._url)
@@ -366,7 +367,8 @@ class AMQPDriverBase(base.BaseDriver):
             conn = self._get_connection(pooled=False)
 
             self._waiter = ReplyWaiter(self.conf, reply_q, conn,
-                                       self._allowed_remote_exmods)
+                                       self._allowed_remote_exmods,
+                                       self._protocol)
 
             self._reply_q = reply_q
             self._reply_q_conn = conn
@@ -398,7 +400,7 @@ class AMQPDriverBase(base.BaseDriver):
         rpc_amqp.pack_context(msg, context)
 
         if envelope:
-            msg = rpc_common.serialize_msg(msg)
+            msg = self._protocol.serialize_msg(msg)
 
         if wait_for_reply:
             self._waiter.listen(msg_id)
