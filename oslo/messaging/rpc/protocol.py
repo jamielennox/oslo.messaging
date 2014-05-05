@@ -115,7 +115,7 @@ class OpenStackRPC2(RPCProtocol):
 
     _REMOTE_POSTFIX = '_Remote'
 
-    def serialize_msg(self, raw_msg):
+    def serialize_msg(self, target, raw_msg):
         # NOTE(russellb) See the docstring for _RPC_ENVELOPE_VERSION for more
         # information about this format.
         msg = {self._VERSION_KEY: self._RPC_ENVELOPE_VERSION,

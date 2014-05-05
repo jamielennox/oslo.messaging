@@ -221,7 +221,7 @@ class ReplyWaiter(object):
 
                 incoming_msg_id = message_data.pop('_msg_id', None)
                 if incoming_msg_id == msg_id:
-                    return self._process_reply(message_data)
+                    return message_data
 
                 self.waiters.put(incoming_msg_id, message_data)
 
@@ -235,10 +235,9 @@ class ReplyWaiter(object):
     def _poll_queue(self, msg_id, timeout):
         message = self.waiters.get(msg_id, timeout)
         if message is self.waiters.WAKE_UP:
-            return None, None, True  # lock was released
+            return None, True  # lock was released
 
-        reply, ending = self._process_reply(message)
-        return reply, ending, False
+        return message, False
 
     def _check_queue(self, msg_id):
         while True:
@@ -246,10 +245,9 @@ class ReplyWaiter(object):
             if message is self.waiters.WAKE_UP:
                 continue
             if message is None:
-                return None, None, True  # queue is empty
+                return None, True  # queue is empty
 
-            reply, ending = self._process_reply(message)
-            return reply, ending, False
+            return message, False
 
     def wait(self, msg_id, timeout):
         #
@@ -270,9 +268,10 @@ class ReplyWaiter(object):
                     # Check the queue to see if a previous lock-holding thread
                     # queued up a reply already
                     while True:
-                        reply, ending, empty = self._check_queue(msg_id)
+                        message_data, empty = self._check_queue(msg_id)
                         if empty:
                             break
+                        reply, ending = self._process_reply(message_data)
                         if not ending:
                             final_reply = reply
                         else:
@@ -280,7 +279,8 @@ class ReplyWaiter(object):
 
                     # Now actually poll the connection
                     while True:
-                        reply, ending = self._poll_connection(msg_id, timeout)
+                        message_data = self._poll_connection(msg_id, timeout)
+                        reply, ending = self._process_reply(message_data)
                         if not ending:
                             final_reply = reply
                         else:
@@ -293,11 +293,12 @@ class ReplyWaiter(object):
                     self.waiters.wake_all(msg_id)
             else:
                 # We're going to wait for the first thread to pass us our reply
-                reply, ending, trylock = self._poll_queue(msg_id, timeout)
+                message_data, trylock = self._poll_queue(msg_id, timeout)
                 if trylock:
                     # The first thread got its reply, let's try and take over
                     # the responsibility for polling
                     continue
+                reply, ending = self._process_reply(message_data)
                 if not ending:
                     final_reply = reply
                 else:
@@ -400,7 +401,7 @@ class AMQPDriverBase(base.BaseDriver):
         rpc_amqp.pack_context(msg, context)
 
         if envelope:
-            msg = self._protocol.serialize_msg(msg)
+            msg = self._protocol.serialize_msg(target, msg)
 
         if wait_for_reply:
             self._waiter.listen(msg_id)
