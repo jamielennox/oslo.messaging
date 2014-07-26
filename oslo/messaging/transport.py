@@ -33,6 +33,7 @@ from stevedore import driver
 
 from oslo.config import cfg
 from oslo.messaging import exceptions
+from oslo.messaging import security
 
 
 _transport_opts = [
@@ -49,6 +50,10 @@ _transport_opts = [
                help='The default exchange under which topics are scoped. May '
                     'be overridden by an exchange name specified in the '
                     'transport_url option.'),
+    cfg.StrOpt('sec_policy_name',
+               help='The name of a securoty policy plugin to use. If unset '
+                    'then no message level securoty will be used. Possible '
+                    'valuse inculde: dummy, kite'),
 ]
 
 
@@ -73,9 +78,10 @@ class Transport(object):
     to construct the transport object.
     """
 
-    def __init__(self, driver):
+    def __init__(self, driver, security=None):
         self.conf = driver.conf
         self._driver = driver
+        self._security = security
 
     def _require_driver_features(self, requeue=False):
         self._driver.require_features(requeue=requeue)
@@ -85,14 +91,21 @@ class Transport(object):
         if not target.topic:
             raise exceptions.InvalidTarget('A topic is required to send',
                                            target)
-        return self._driver.send(target, ctxt, message,
-                                 wait_for_reply=wait_for_reply,
-                                 timeout=timeout, retry=retry)
+        if self._security:
+            message = self._security.encrypt(target.topic, message)
+        response = self._driver.send(target, ctxt, message,
+                                     wait_for_reply=wait_for_reply,
+                                     timeout=timeout, retry=retry)
+        if self._security and response:
+            response = self._security.decrypt(response)
+        return response
 
     def _send_notification(self, target, ctxt, message, version, retry=None):
         if not target.topic:
             raise exceptions.InvalidTarget('A topic is required to send',
                                            target)
+        if self._security:
+            message = self._security.secure(target.topic, message)
         self._driver.send_notification(target, ctxt, message, version,
                                        retry=retry)
 
@@ -101,6 +114,9 @@ class Transport(object):
             raise exceptions.InvalidTarget('A server\'s target must have '
                                            'topic and server names specified',
                                            target)
+        if self._security:
+            ipt = self._driver.listen(target)
+            return self._security.listen(ipt)
         return self._driver.listen(target)
 
     def _listen_for_notifications(self, targets_and_priorities):
@@ -109,6 +125,10 @@ class Transport(object):
                 raise exceptions.InvalidTarget('A target must have '
                                                'topic specified',
                                                target)
+        if self._security:
+            ipt = self._driver.listen_for_notifications(
+                targets_and_priorities)
+            return self._security.listen(ipt)
         return self._driver.listen_for_notifications(targets_and_priorities)
 
     def cleanup(self):
@@ -186,7 +206,10 @@ def get_transport(conf, url=None, allowed_remote_exmods=None, aliases=None):
     except RuntimeError as ex:
         raise DriverLoadFailure(url.transport, ex)
 
-    return Transport(mgr.driver)
+    sec_policy = None
+    if conf.sec_policy_name:
+        sec_policy = security.get_security_policy(conf.sec_policy_name, conf)
+    return Transport(mgr.driver, sec_policy)
 
 
 class TransportHost(object):
